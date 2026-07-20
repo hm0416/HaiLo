@@ -28,7 +28,7 @@ export async function initDatabase() {
   return db;
 }
 
-// ===== CHECK-IN BUSINESS LOGIC ===== 
+// ===== BUSINESS LOGIC ===== 
 
 // Save a mood check-in to the database
 export async function saveCheckIn(anxiety: number, stress: number, depression: number) {
@@ -56,7 +56,7 @@ export async function saveCheckInWithGraphQL(anxiety: number, stress: number, de
     return data?.saveCheckIn ?? null;
   } catch (error) {
     console.warn('GraphQL save check-in failed, using local database', error);
-    return saveCheckIn(anxiety, stress, depression);
+    return saveCheckIn(anxiety, stress, depression); // need this because the graohQL call will fail since no server running
   }
 }
 
