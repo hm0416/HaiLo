@@ -1,9 +1,10 @@
-import { getVideoByTopic, getVideos, initDatabase } from '../services/recoveryService';
+import { getVideoByTopic, getVideos, getVideosFromGraphQL, initDatabase } from '../services/recoveryService';
 import { QuestionKey } from '../types';
 
 export async function loadVideosController() {
     await initDatabase(); // initializes DB before getting videos, double check this 
-    return getVideos();
+    // return getVideos();
+    return getVideosFromGraphQL();
 }
 
 export async function getVideoBasedOnScoreController(scores: Record<QuestionKey, number | null>) {

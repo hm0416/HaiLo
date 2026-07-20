@@ -38,7 +38,7 @@ export default function HomeScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ThemedText type="title" style={styles.title}>
-          Currently Available Videos
+          Selected For You
         </ThemedText>
 
         <ThemedView style={styles.videoList}>

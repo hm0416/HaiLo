@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { recoveryClient } from '../client/recoveryClient';
+import { GET_VIDEOS, recoveryClient } from '../client/recoveryClient';
 import type { VideoRecord } from '@/api/types';
 
 // export class RecoveryService {
@@ -55,6 +55,20 @@ export async function getVideos() {
     'SELECT * FROM videos ORDER BY topic, title'
   );
   return videos;
+}
+
+// fetch videos from GraphQL API, fallback to local database if it fails
+export async function getVideosFromGraphQL() {
+  try {
+    const { data } = await recoveryClient.query<{ videos: VideoRecord[] }>({
+      query: GET_VIDEOS,
+    });
+
+    return data?.videos ?? [];
+  } catch (error) {
+    console.warn('GraphQL videos failed, using local data', error);
+    return getVideos();
+  }
 }
 
 // for exercise, only one video per topic 
