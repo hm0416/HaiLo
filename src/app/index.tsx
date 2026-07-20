@@ -8,6 +8,7 @@ import { WebBadge } from '@/components/web-badge';
 import { Spacing } from '@/constants/theme';
 import { QuestionKey } from '@/api/types';
 import { loadVideoSummaries, type SummaryBlock } from './home-summary';
+import { getLastCheckInController, saveCheckInController } from '@/api/controllers/recoveryController';
 
 const questions: Array<{ key: QuestionKey; label: string; videoId: string }> = [
   { key: 'anxiety', label: 'How has your anxiety been?', videoId: 'v1' },
@@ -30,18 +31,36 @@ export default function HomeScreen() {
   });
   const [summaries, setSummaries] = useState<Record<string, SummaryBlock>>({});
   const [loading, setLoading] = useState(true);
+  const [lastCheckInDate, setLastCheckInDate] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
 
     async function loadData() {
       try {
-        const cachedSummaries = await loadVideoSummaries();
+        const [cachedSummaries, lastCheckIn] = await Promise.all([
+          loadVideoSummaries(),
+          getLastCheckInController(),
+        ]);
+
         if (active) {
           setSummaries(cachedSummaries);
+
+          // Load last saved scores if they exist
+          if (lastCheckIn) {
+            console.log('Loaded last check-in:', lastCheckIn);
+            setResponses({
+              anxiety: lastCheckIn.anxiety,
+              stress: lastCheckIn.stress,
+              depression: lastCheckIn.depression,
+            });
+            setLastCheckInDate(new Date(lastCheckIn.timestamp).toLocaleDateString());
+          } else {
+            console.log('No previous check-in found');
+          }
         }
       } catch (error) {
-        console.warn('Failed to load summaries', error);
+        console.warn('Failed to load data', error);
       } finally {
         if (active) setLoading(false);
       }
@@ -54,8 +73,28 @@ export default function HomeScreen() {
     };
   }, []);
 
-  const selectOption = (key: QuestionKey, value: number) => {
-    setResponses((current) => ({ ...current, [key]: value }));
+  const selectOption = async (key: QuestionKey, value: number) => {
+    const newResponses = { ...responses, [key]: value };
+    setResponses(newResponses);
+
+    // Save to database when all three values are set
+    if (newResponses.anxiety !== null && newResponses.stress !== null && newResponses.depression !== null) {
+      try {
+        console.log('Saving check-in:', newResponses);
+        const checkIn = await saveCheckInController(
+          newResponses.anxiety,
+          newResponses.stress,
+          newResponses.depression
+        );
+
+        if (checkIn) {
+          console.log('Check-in saved successfully:', checkIn);
+          setLastCheckInDate(new Date(checkIn.timestamp).toLocaleDateString());
+        }
+      } catch (error) {
+        console.warn('Failed to save check-in', error);
+      }
+    }
   };
 
   return (
@@ -77,6 +116,12 @@ export default function HomeScreen() {
           <ThemedText type="subtitle" style={styles.title}>
             How are you feeling today?
           </ThemedText>
+
+          {lastCheckInDate && (
+            <ThemedText type="small" style={styles.lastCheckInText}>
+              Last check-in: {lastCheckInDate}
+            </ThemedText>
+          )}
 
           {questions.map((question) => {
             const selectedValue = responses[question.key];
@@ -189,6 +234,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: Spacing.one,
     fontSize: 25,
+  },
+  lastCheckInText: {
+    textAlign: 'center',
+    opacity: 0.6,
+    marginBottom: Spacing.two,
+    fontSize: 12,
   },
   questionSection: {
     width: '100%',
