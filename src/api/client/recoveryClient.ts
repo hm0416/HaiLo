@@ -17,14 +17,28 @@ export class RecoveryClient {
 
 export const recoveryClient = new RecoveryClient().client;
 
-export const GET_VIDEOS = gql`
-  query GetVideos {
-    videos {
+// Query to get the last mood check-in
+export const GET_LAST_CHECK_IN = gql`
+  query GetLastCheckIn {
+    lastCheckIn {
       id
-      title
-      source
-      topic
-      minScore
+      anxiety
+      stress
+      depression
+      timestamp
+    }
+  }
+`;
+
+// Mutation to save a new mood check-in
+export const SAVE_CHECK_IN = gql`
+  mutation SaveCheckIn($anxiety: Int!, $stress: Int!, $depression: Int!) {
+    saveCheckIn(anxiety: $anxiety, stress: $stress, depression: $depression) {
+      id
+      anxiety
+      stress
+      depression
+      timestamp
     }
   }
 `;
