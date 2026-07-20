@@ -65,6 +65,15 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          <ThemedView style={styles.introSection}>
+            <ThemedText type="subtitle" style={styles.welcomeTitle}>
+              Welcome to HaiLo
+            </ThemedText>
+            <ThemedText type="small" style={styles.introText}>
+              Your personal mental health companion. Track how you're feeling and get personalized resources to support your well-being.
+            </ThemedText>
+          </ThemedView>
+
           <ThemedText type="subtitle" style={styles.title}>
             How are you feeling today?
           </ThemedText>
@@ -158,6 +167,23 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     gap: Spacing.two,
+  },
+  introSection: {
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
+    marginBottom: Spacing.two,
+  },
+  welcomeTitle: {
+    textAlign: 'center',
+    fontSize: 28,
+    marginBottom: Spacing.one,
+    fontWeight: '700',
+  },
+  introText: {
+    textAlign: 'center',
+    opacity: 0.8,
+    lineHeight: 20,
   },
   title: {
     textAlign: 'center',
