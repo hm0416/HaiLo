@@ -1,60 +1,68 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Linking, Platform, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
+import { loadVideosController } from '@/api/controllers/recoveryController';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import { VideoRecord } from '@/api/types';
 
 export default function HomeScreen() {
+  const [videos, setVideos] = useState<VideoRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadVideos() {
+      try {
+        const data = await loadVideosController();
+        if (active) setVideos(data);
+      } catch (error) {
+        console.warn('Failed to load videos', error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    loadVideos();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
+        <ThemedText type="title" style={styles.title}>
+          Currently Available Videos
         </ThemedText>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
+        <ThemedView style={styles.videoList}>
+          {loading ? (
+            <ThemedText type="small">Loading videos...</ThemedText>
+          ) : videos.length === 0 ? (
+            <ThemedText type="small">No videos available yet.</ThemedText>
+          ) : (
+            videos.map((video) => (
+              <Pressable
+                key={video.id}
+                onPress={() => Linking.openURL(video.source)}
+                style={styles.videoCard}
+              >
+                <ThemedText type="default" style={styles.videoTitle}>
+                  {video.title}
+                </ThemedText>
+                <ThemedText type="small" style={styles.videoMeta}>
+                  {`topic: ${video.topic}`}
+                </ThemedText>
+              </Pressable>
+            ))
+          )}
         </ThemedView>
-
         {Platform.OS === 'web' && <WebBadge />}
       </SafeAreaView>
     </ThemedView>
@@ -75,24 +83,24 @@ const styles = StyleSheet.create({
     paddingBottom: BottomTabInset + Spacing.three,
     maxWidth: MaxContentWidth,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
   title: {
     textAlign: 'center',
+    fontSize: 24,
   },
-  code: {
-    textTransform: 'uppercase',
+  videoList: {
+    width: '100%',
+    gap: Spacing.two,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  videoCard: {
+    padding: Spacing.two,
+    borderRadius: Spacing.two,
+    backgroundColor: 'rgba(60, 135, 247, 0.12)',
+  },
+  videoTitle: {
+    fontWeight: '600',
+  },
+  videoMeta: {
+    marginTop: Spacing.one / 2,
+    opacity: 0.8,
   },
 });
