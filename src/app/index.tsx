@@ -111,7 +111,7 @@ export default function HomeScreen() {
                       {video.title}
                     </ThemedText>
                     <ThemedText type="small" style={styles.videoMeta}>
-                      Tap to watch • {question.key}
+                      Tap to watch
                     </ThemedText>
 
                     {summary && !loading ? (
@@ -232,6 +232,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: Spacing.one,
     marginBottom: Spacing.one / 4,
+    marginLeft: Spacing.one,
   },
   bulletText: {
     lineHeight: 20,
