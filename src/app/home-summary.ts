@@ -1,8 +1,4 @@
-export interface SummaryBlock {
-    // summary: string;
-    tipsAndTricks: string[];
-    actionPlan: string[];
-}
+import { SummaryBlock } from '@/api/types';
 
 export async function loadVideoSummaries(): Promise<Record<string, SummaryBlock>> {
     try {
@@ -25,3 +21,5 @@ export async function loadVideoSummaries(): Promise<Record<string, SummaryBlock>
         return {};
     }
 }
+export { SummaryBlock };
+
