@@ -20,19 +20,18 @@ export default function AppTabs() {
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="explore">
-        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
+      <NativeTabs.Trigger name="moodChecker">
+        <NativeTabs.Trigger.Label>Mood Checker</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
+          src={require('@/assets/images/tabIcons/home.png')}
           renderingMode="template"
         />
       </NativeTabs.Trigger>
 
-
-      <NativeTabs.Trigger name="chatbot">
-        <NativeTabs.Trigger.Label>Chat</NativeTabs.Trigger.Label>
+      <NativeTabs.Trigger name="progress">
+        <NativeTabs.Trigger.Label>Progress</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
+          src={require('@/assets/images/tabIcons/explore.png')}
           renderingMode="template"
         />
       </NativeTabs.Trigger>

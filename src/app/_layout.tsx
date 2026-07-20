@@ -4,7 +4,7 @@ import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
-import { initDatabase } from '@/services/recoveryService';
+import { initDatabase } from '@/api/services/recoveryService';
 
 SplashScreen.preventAutoHideAsync();
 initDatabase(); // called at app startup
