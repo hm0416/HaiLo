@@ -1,6 +1,7 @@
 import {
     saveCheckInController,
     getLastCheckInController,
+    getRiskAssessmentController,
 } from '@/api/controllers/recoveryController';
 import * as recoveryService from '@/api/services/recoveryService';
 
@@ -9,6 +10,7 @@ jest.mock('@/api/services/recoveryService', () => ({
     initDatabase: jest.fn().mockResolvedValue({}),
     saveCheckInWithGraphQL: jest.fn(),
     getLastCheckInWithGraphQL: jest.fn(),
+    getCurrentRiskAssessment: jest.fn(),
 }));
 
 describe('recoveryController', () => {
@@ -185,6 +187,87 @@ describe('recoveryController', () => {
             expect(getResult).toEqual(savedCheckIn);
 
             expect(recoveryService.initDatabase).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    describe('getRiskAssessmentController', () => {
+        it('should initialize database before getting risk assessment', async () => {
+            const mockAssessment = {
+                level: 'high' as const,
+                message: 'Consider reaching out',
+                urgency: 'immediate' as const,
+                recommendation: 'Please prioritize your mental health',
+            };
+
+            (recoveryService.getCurrentRiskAssessment as jest.Mock).mockResolvedValue(mockAssessment);
+
+            await getRiskAssessmentController();
+
+            expect(recoveryService.initDatabase).toHaveBeenCalledTimes(1);
+        });
+
+        it('should call getCurrentRiskAssessment', async () => {
+            const mockAssessment = {
+                level: 'moderate' as const,
+                message: 'Your stress levels are elevated',
+                urgency: 'soon' as const,
+                recommendation: 'Watch the recommended videos',
+            };
+
+            (recoveryService.getCurrentRiskAssessment as jest.Mock).mockResolvedValue(mockAssessment);
+
+            const result = await getRiskAssessmentController();
+
+            expect(recoveryService.getCurrentRiskAssessment).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mockAssessment);
+        });
+
+        it('should return null when no check-ins exist', async () => {
+            (recoveryService.getCurrentRiskAssessment as jest.Mock).mockResolvedValue(null);
+
+            const result = await getRiskAssessmentController();
+
+            expect(result).toBeNull();
+        });
+
+        it('should handle high risk assessment', async () => {
+            const mockAssessment = {
+                level: 'high' as const,
+                message: 'Consider reaching out to a counselor',
+                urgency: 'immediate' as const,
+                recommendation: 'Please prioritize your mental health and seek support',
+            };
+
+            (recoveryService.getCurrentRiskAssessment as jest.Mock).mockResolvedValue(mockAssessment);
+
+            const result = await getRiskAssessmentController();
+
+            expect(result?.level).toBe('high');
+            expect(result?.urgency).toBe('immediate');
+        });
+
+        it('should handle low risk assessment', async () => {
+            const mockAssessment = {
+                level: 'low' as const,
+                message: "You're doing well!",
+                urgency: 'routine' as const,
+                recommendation: 'Continue your current wellness practices',
+            };
+
+            (recoveryService.getCurrentRiskAssessment as jest.Mock).mockResolvedValue(mockAssessment);
+
+            const result = await getRiskAssessmentController();
+
+            expect(result?.level).toBe('low');
+            expect(result?.urgency).toBe('routine');
+        });
+
+        it('should propagate errors from service layer', async () => {
+            (recoveryService.getCurrentRiskAssessment as jest.Mock).mockRejectedValue(
+                new Error('Database error')
+            );
+
+            await expect(getRiskAssessmentController()).rejects.toThrow('Database error');
         });
     });
 });

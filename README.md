@@ -1,23 +1,33 @@
-# HaiLo - Mental Health & Wellness Companion 🌟
+# HaiLo - AI-Powered Mental Health Support Platform 🌟
 
-A comprehensive wellness companion app for students focused on mental health support, mood tracking, and personalized video recommendations. Built with Expo, React Native, and AI-powered content curation.
+A mobile wellness application that helps users monitor their mental health and access personalized support resources when they need them most. Built with Expo, React Native, TanStack Query, and local LLM integration for AI-powered content generation.
 
-## 📱 What is HaiLo?
+**Key capabilities:**
 
-HaiLo is a mental health support application designed to help students manage stress, anxiety, and depression through:
+- **Real-Time Risk Assessment**: Intelligent algorithm analyzes anxiety, stress, and depression scores to provide immediate feedback and recommendations
+- **Personalized Content Delivery**: Shows relevant mental health videos and resources based on your current emotional state
+- **AI-Generated Action Plans**: Uses LM Studio (local LLM) to generate personalized video summaries, actionable tips, and recovery strategies
+- **Privacy-First Design**: All data stored locally on device using SQLite
 
-- **Mood Check-ins**: Interactive chatbot that asks targeted questions about your mental state
-- **Intelligent Recommendations**: Curated mental health content with AI-generated summaries, tips, and action plans
+### Core Features
+
+- ✅ **Mood Check-In Questionnaire**: Track anxiety, stress, and depression levels on a 1-5 scale
+- ✅ **Risk Level Assessment**: Sophisticated algorithm computes risk levels (high/moderate/low) with personalized recommendations
+- ✅ **Smart Video Recommendations**: Displays curated mental health videos when scores indicate elevated distress (≥3)
+- ✅ **AI-Powered Insights**: LM Studio integration generates personalized tips, tricks, and action plans from video content
+- ✅ **Local Data Persistence**: SQLite database ensures your check-in history survives app restarts
+- ✅ **GraphQL Ready**: Apollo Client integration for future backend API connectivity (with SQLite fallback)
 
 ### Architecture Highlights
 
-This app demonstrates production-ready architecture patterns:
+This app demonstrates production-ready React Native development practices:
 
-- **Service Layer Architecture**: Clean separation between UI, business logic, and data layers
-- **Real Business Logic**: Mood scoring algorithms, video recommendation engine, and data aggregation
-- **GraphQL API**: Apollo Client integration for backend communication
-- **Persistent Storage**: Expo SQLite for local data persistence
+- **Three-Layer Architecture**: Clean separation between Presentation (UI), Business Logic (Services), and Data (Client) layers
+- **Real Business Logic**: Risk assessment algorithm with computation, transformation, aggregation, and rule enforcement
+- **Modern State Management**: TanStack Query for server state, React hooks for UI state
+- **Type-Safe Development**: Full TypeScript coverage across all layers
 - **Comprehensive Testing**: 96%+ code coverage with Jest and React Native Testing Library
+- **GraphQL Integration**: Apollo Client for API communication with intelligent fallback patterns
 
 ## 🚀 Getting Started
 
@@ -60,9 +70,9 @@ This app demonstrates production-ready architecture patterns:
    npm run web       # Web browser
    ```
 
-## 🤖 Setting Up LM Studio (AI Integration)
+## 🤖 Setting Up LM Studio (AI Content Generation)
 
-LM Studio provides local AI capabilities for generating video summaries and wellness tips.
+LM Studio powers HaiLo's intelligent content summarization and personalized insight generation.
 
 ### Installation & Setup
 
@@ -130,11 +140,11 @@ Current coverage statistics:
 
 ```
 Test Suites: 3 passed, 3 total
-Tests:       39 passed, 39 total
+Tests:       66 passed, 66 total
 
 Coverage:
 - Controllers:  100%   (Full coverage)
-- Services:     96.42% (Excellent coverage)  
+- Services:     100%   (Full coverage - includes risk assessment)
 - Utilities:    81.81% (Good coverage)
 ```
 
@@ -153,15 +163,13 @@ __tests__/
 
 ### What's Tested
 
-- ✅ Mood scoring algorithms
-- ✅ Video recommendation engine
-- ✅ Dashboard data aggregation
-- ✅ Check-in validation and processing
+- ✅ Risk assessment algorithm (high/moderate/low risk computation with edge cases)
+- ✅ Check-in persistence (save and retrieve)
+- ✅ GraphQL operations with fallback patterns
+- ✅ Video summary loading and parsing
+- ✅ Controller layer integration
 - ✅ Error handling and edge cases
-- ✅ Data persistence layer
-- ✅ API client integration
-
-View detailed test documentation in [TESTING.md](TESTING.md).
+- ✅ Database initialization and table schema creation
 
 ## 📂 Project Structure
 
@@ -169,14 +177,25 @@ View detailed test documentation in [TESTING.md](TESTING.md).
 src/
 ├── api/
 │   ├── client/              # Apollo GraphQL client setup
-│   ├── controllers/         # Request handlers and routing
-│   ├── services/            # Core business logic
-│   └── utils/               # Helper functions
+│   │   └── recoveryClient.ts
+│   ├── controllers/         # Controller layer - connects UI to services
+│   │   └── recoveryController.ts
+│   ├── services/            # Business logic layer
+│   │   └── recoveryService.ts  # Risk assessment, check-in persistence, GraphQL operations
+│   ├── utils/               # Helper functions
+│   │   └── home-summary.ts  # Video summary loader
+│   └── types.ts             # TypeScript type definitions
 ├── app/
-│   ├── index.tsx            # Homescreen with mood check-in flow
+│   ├── _layout.tsx          # Root layout with TanStack Query provider
+│   └── index.tsx            # Main screen with mood check-in and risk assessment
 ├── components/              # Reusable UI components
+│   ├── themed-text.tsx
+│   ├── themed-view.tsx
+│   └── ...
 ├── constants/               # Theme and configuration
+│   └── theme.ts
 └── hooks/                   # Custom React hooks
+    └── use-theme.ts
 ```
 
 ## 🏗️ Architecture Overview
@@ -185,24 +204,43 @@ src/
 
 1. **Presentation Layer** (`src/app/`, `src/components/`)
    - React Native screens and UI components
+   - TanStack Query hooks for data fetching and mutations
    - User interaction and input handling
+   - Risk assessment display with color-coded badges
 
-2. **Business Logic Layer** (`src/api/services/`)
-   - `recoveryService.ts`: Mood scoring & recommendations
+2. **Business Logic Layer** (`src/api/services/recoveryService.ts`)
+   - `assessRiskLevel()`: Computes risk level from anxiety, stress, depression scores
+   - `saveCheckIn()` / `getLastCheckIn()`: Local SQLite operations
+   - `saveCheckInWithGraphQL()` / `getLastCheckInWithGraphQL()`: GraphQL operations with fallback
+   - `getCurrentRiskAssessment()`: Retrieves and analyzes most recent check-in
    - Pure business logic, framework-agnostic
    - Highly testable with comprehensive unit tests
 
-3. **Data Layer** (`src/api/client/`)
+3. **Data Layer** (`src/api/client/recoveryClient.ts`)
    - Apollo Client for GraphQL communication
    - Expo SQLite for local persistence
-   - Data transformation and caching
+   - GraphQL queries and mutations
+   - Fallback patterns for offline-first functionality
 
-### Key Features
+### Key Implementation Details
 
-- **Mood Scoring Algorithm**: Converts check-in responses into actionable mood states
-- **Recommendation Engine**: Matches mood scores to relevant wellness content
-- **Data Persistence**: SQLite ensures data survives app restarts
-- **Type Safety**: Full TypeScript coverage for reliability
+**Risk Assessment Algorithm** (`assessRiskLevel` function):
+- Analyzes three mental health metrics: anxiety, stress, depression (1-5 scale each)
+- Computes total score, high score count, and average score
+- **High Risk**: Total ≥ 12 OR 2+ scores ≥ 4 OR average ≥ 4
+- **Moderate Risk**: Total ≥ 9 OR any score ≥ 4
+- **Low Risk**: All other cases
+- Returns risk level, personalized message, urgency level, and recommendation
+
+**State Management Pattern**:
+- **Server State** (TanStack Query): Video summaries, last check-in, risk assessment
+- **UI State** (React useState): Current questionnaire responses
+- **Mutations**: Check-in saves trigger automatic refetch of last check-in and risk assessment
+
+**Video Recommendation Logic**:
+- Videos only display when corresponding score ≥ 3 (elevated distress)
+- Each video includes AI-generated tips & tricks and action plan
+- Generated using LM Studio during build time (not runtime)
 
 ## 🛠️ Development
 
@@ -221,8 +259,89 @@ npm run reset-project  # Reset to blank template
 
 - **Framework**: Expo SDK 57, React Native 0.86
 - **Language**: TypeScript 6.0
-- **State Management**: Apollo Client with GraphQL
-- **Database**: Expo SQLite
-- **Testing**: Jest, React Native Testing Library
-- **AI Integration**: LM Studio (local inference)
+- **State Management**: TanStack Query v5 for server state, React hooks for UI state
+- **Backend Integration**: Apollo Client with GraphQL (fallback to local SQLite)
+- **Database**: Expo SQLite for local data persistence
+- **Testing**: Jest 30, React Native Testing Library
+- **AI Content Generation**: LM Studio (local LLM inference) for video summarization
+
+## 💡 Project Motivation & Vision
+
+### Why HaiLo?
+
+Mental health support is often inaccessible to those who need it most. While therapy is an invaluable resource, many people face significant barriers:
+
+- **Time constraints**: Busy schedules make it difficult to attend regular therapy sessions
+- **Financial barriers**: The cost of therapy puts professional help out of reach for many
+- **Immediate needs**: Sometimes you need quick, actionable guidance in the moment—not next week's appointment
+- **Limited resources**: Many people lack access to adequate mental health support systems
+
+HaiLo addresses these challenges by making mental health resources accessible, immediate, and free. Users can check in on their emotional state and instantly receive personalized wellness resources, action plans, and support—all from their phone, whenever they need it.
+
+### AI in Healthcare: The Future is Now
+
+Artificial Intelligence has made remarkable advances in recent years, yet its potential in healthcare—particularly mental health—remains underutilized. This project represents a step toward that future, demonstrating how AI can:
+
+- **Democratize access** to mental health support
+- **Provide immediate, personalized guidance** based on individual needs
+- **Complement traditional therapy** with accessible daily check-ins and resources
+- **Scale support** to reach more people without the constraints of traditional healthcare systems
+
+Building HaiLo is my way of showcasing the transformative potential of AI in mental healthcare—proving that technology can make a real difference in people's lives.
+
+### Integration with Release U
+
+Throughout development, I also envisioned how HaiLo could integrate seamlessly with the Release U platform to enhance student engagement and support. The combination of mental health check-ins with campus resources could create a comprehensive wellness ecosystem that encourages students to take an active role in their well-being.
+
+## 🚀 Future Enhancements
+
+Given more development time, I would expand HaiLo with these features:
+
+### 1. Smart Conversational Check-In
+
+Transform the static questionnaire into an **interactive rule-based chatbot** that adapts questions based on user responses using predetermined logic:
+
+- Dynamic question flow that follows up on concerning responses based on predefined decision trees
+- Branching logic that personalizes the conversation flow based on response patterns
+- Adaptive pacing that adjusts based on user input (slower for detailed responses, faster for quick answers)
+
+**Important**: This uses rule-based logic and predetermined decision trees—not AI-generated advice—to ensure safe, clinically-validated guidance without risk of incorrect AI recommendations.
+
+**Impact**: More accurate emotional assessment through context-aware dialogue, leading to better-tailored resource recommendations while maintaining safety and clinical accuracy.
+
+### 2. Progress Dashboard & Sobriety Tracking
+
+A comprehensive **progress screen** where users can:
+
+- Track sobriety streaks with visual calendar
+- Check off sober days and celebrate milestones
+- View mental health trends over time (anxiety, stress, depression patterns)
+- Earn **"Campus Bucks"** or similar incentives when reaching sobriety goals
+
+**Challenges to solve**: 
+- Honor system integrity: How to incentivize honesty while preventing abuse
+- Potential solution: Combine self-reporting with optional accountability partners or periodic video check-ins
+- Balance incentives with genuine wellness focus
+
+**Impact**: Gamification and progress visualization increase motivation and long-term engagement.
+
+### 3. Peer Support Forum
+
+A **student-focused forum** modeled after Reddit where users can:
+
+- Share experiences and coping strategies anonymously
+- Discuss mental health challenges in a safe, moderated space
+- Offer and receive peer support from others who understand
+- Upvote helpful advice and resources
+
+**Moderation approach**:
+- AI-powered content filtering for harmful content
+- Community moderators trained in mental health support
+- Crisis detection system that flags concerning posts for intervention
+
+**Impact**: Reduces isolation by creating a supportive community, normalizing mental health conversations, and providing peer-to-peer support that complements professional resources.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
