@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Linking, Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -24,54 +25,52 @@ const videoData: Record<string, { url: string; title: string }> = {
 };
 
 export default function HomeScreen() {
+  const queryClient = useQueryClient();
+
+  // Local UI state - user's current selections (not persisted until saved)
   const [responses, setResponses] = useState<Record<QuestionKey, number | null>>({
     stress: null,
     anxiety: null,
     depression: null,
   });
-  const [summaries, setSummaries] = useState<Record<string, SummaryBlock>>({});
-  const [loading, setLoading] = useState(true);
-  const [lastCheckInDate, setLastCheckInDate] = useState<string | null>(null);
 
+  // Server state - Video summaries from cached JSON
+  const { data: summaries = {}, isLoading: summariesLoading } = useQuery<Record<string, SummaryBlock>>({
+    queryKey: ['videoSummaries'],
+    queryFn: loadVideoSummaries,
+  });
+
+  // Server state - Last check-in from database
+  const { data: lastCheckIn, isLoading: checkInLoading } = useQuery({
+    queryKey: ['lastCheckIn'],
+    queryFn: getLastCheckInController,
+  });
+
+  // Initialize responses when lastCheckIn data loads
   useEffect(() => {
-    let active = true;
-
-    async function loadData() {
-      try {
-        const [cachedSummaries, lastCheckIn] = await Promise.all([
-          loadVideoSummaries(),
-          getLastCheckInController(),
-        ]);
-
-        if (active) {
-          setSummaries(cachedSummaries);
-
-          // Load last saved scores if they exist
-          if (lastCheckIn) {
-            console.log('Loaded last check-in:', lastCheckIn);
-            setResponses({
-              anxiety: lastCheckIn.anxiety,
-              stress: lastCheckIn.stress,
-              depression: lastCheckIn.depression,
-            });
-            setLastCheckInDate(new Date(lastCheckIn.timestamp).toLocaleDateString());
-          } else {
-            console.log('No previous check-in found');
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to load data', error);
-      } finally {
-        if (active) setLoading(false);
-      }
+    if (lastCheckIn) {
+      console.log('Loaded last check-in:', lastCheckIn);
+      setResponses({
+        anxiety: lastCheckIn.anxiety,
+        stress: lastCheckIn.stress,
+        depression: lastCheckIn.depression,
+      });
     }
+  }, [lastCheckIn]);
 
-    loadData();
-
-    return () => {
-      active = false;
-    };
-  }, []);
+  // Mutation - Save check-in to database
+  const saveCheckInMutation = useMutation({
+    mutationFn: ({ anxiety, stress, depression }: { anxiety: number; stress: number; depression: number }) =>
+      saveCheckInController(anxiety, stress, depression),
+    onSuccess: (data) => {
+      console.log('Check-in saved successfully:', data);
+      // Invalidate and refetch last check-in query
+      queryClient.invalidateQueries({ queryKey: ['lastCheckIn'] });
+    },
+    onError: (error) => {
+      console.warn('Failed to save check-in', error);
+    },
+  });
 
   const selectOption = async (key: QuestionKey, value: number) => {
     const newResponses = { ...responses, [key]: value };
@@ -79,23 +78,16 @@ export default function HomeScreen() {
 
     // Save to database when all three values are set
     if (newResponses.anxiety !== null && newResponses.stress !== null && newResponses.depression !== null) {
-      try {
-        console.log('Saving check-in:', newResponses);
-        const checkIn = await saveCheckInController(
-          newResponses.anxiety,
-          newResponses.stress,
-          newResponses.depression
-        );
-
-        if (checkIn) {
-          console.log('Check-in saved successfully:', checkIn);
-          setLastCheckInDate(new Date(checkIn.timestamp).toLocaleDateString());
-        }
-      } catch (error) {
-        console.warn('Failed to save check-in', error);
-      }
+      saveCheckInMutation.mutate({
+        anxiety: newResponses.anxiety,
+        stress: newResponses.stress,
+        depression: newResponses.depression,
+      });
     }
   };
+
+  const loading = summariesLoading || checkInLoading;
+  const lastCheckInDate = lastCheckIn ? new Date(lastCheckIn.timestamp).toLocaleDateString() : null;
 
   return (
     <ThemedView style={styles.container}>
