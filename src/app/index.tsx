@@ -8,9 +8,11 @@ import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { VideoRecord } from '@/api/types';
+import { loadVideoSummaries, type SummaryBlock } from './home-summary';
 
 export default function HomeScreen() {
   const [videos, setVideos] = useState<VideoRecord[]>([]);
+  const [summaries, setSummaries] = useState<Record<string, SummaryBlock>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,8 +20,15 @@ export default function HomeScreen() {
 
     async function loadVideos() {
       try {
-        const data = await loadVideosController();
-        if (active) setVideos(data);
+        const [data, cachedSummaries] = await Promise.all([
+          loadVideosController(),
+          loadVideoSummaries(),
+        ]);
+
+        if (active) {
+          setVideos(data);
+          setSummaries(cachedSummaries);
+        }
       } catch (error) {
         console.warn('Failed to load videos', error);
       } finally {
@@ -47,20 +56,50 @@ export default function HomeScreen() {
           ) : videos.length === 0 ? (
             <ThemedText type="small">No videos available yet.</ThemedText>
           ) : (
-            videos.map((video) => (
-              <Pressable
-                key={video.id}
-                onPress={() => Linking.openURL(video.source)}
-                style={styles.videoCard}
-              >
-                <ThemedText type="default" style={styles.videoTitle}>
-                  {video.title}
-                </ThemedText>
-                <ThemedText type="small" style={styles.videoMeta}>
-                  {`topic: ${video.topic}`}
-                </ThemedText>
-              </Pressable>
-            ))
+            videos.map((video) => {
+              const summary = summaries[video.id];
+
+              return (
+                <Pressable
+                  key={video.id}
+                  onPress={() => Linking.openURL(video.source)}
+                  style={styles.videoCard}
+                >
+                  <ThemedText type="default" style={styles.videoTitle}>
+                    {video.title}
+                  </ThemedText>
+                  <ThemedText type="small" style={styles.videoMeta}>
+                    {`topic: ${video.topic}`}
+                  </ThemedText>
+                  {summary ? (
+                    <ThemedView style={styles.summaryBlock}>
+                      {/* <ThemedText type="small" style={styles.summaryLabel}>
+                        Summary
+                      </ThemedText>
+                      <ThemedText type="small">{summary.summary}</ThemedText> */}
+
+                      <ThemedText type="small" style={styles.summaryLabel}>
+                        Tips / Tricks
+                      </ThemedText>
+                      {summary.tipsAndTricks?.map((tip) => (
+                        <ThemedText key={tip} type="small">
+                          • {tip}
+                        </ThemedText>
+                      ))}
+
+                      <ThemedText type="small" style={styles.summaryLabel}>
+                        Action Plan
+                      </ThemedText>
+                      {summary.actionPlan?.map((step) => (
+                        <ThemedText key={step} type="small">
+                          • {step}
+                        </ThemedText>
+                      ))}
+                    </ThemedView>
+                  ) : null}
+                </Pressable>
+              );
+            })
           )}
         </ThemedView>
         {Platform.OS === 'web' && <WebBadge />}
@@ -102,5 +141,13 @@ const styles = StyleSheet.create({
   videoMeta: {
     marginTop: Spacing.one / 2,
     opacity: 0.8,
+  },
+  summaryBlock: {
+    marginTop: Spacing.one,
+    gap: Spacing.one / 2,
+  },
+  summaryLabel: {
+    fontWeight: '700',
+    marginTop: Spacing.one / 2,
   },
 });
