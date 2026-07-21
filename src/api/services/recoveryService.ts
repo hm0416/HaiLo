@@ -2,7 +2,7 @@ import * as SQLite from 'expo-sqlite';
 import { GET_LAST_CHECK_IN, SAVE_CHECK_IN, recoveryClient } from '../client/recoveryClient';
 import type { CheckInRecord } from '@/api/types';
 
-const db = SQLite.openDatabaseSync('releaseu.db'); // creates DB
+const db = SQLite.openDatabaseSync('hailo.db'); // creates DB
 
 let isInitialized = false;
 

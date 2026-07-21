@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "ReleaseUv2",
-    "slug": "ReleaseUv2",
+    "name": "HaiLo",
+    "slug": "hailo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "releaseuv2",
+    "scheme": "hailo",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"

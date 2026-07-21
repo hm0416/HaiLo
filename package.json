@@ -1,5 +1,5 @@
 {
-  "name": "releaseuv2",
+  "name": "hailo",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
@@ -36,7 +36,13 @@
     "youtube-transcript-api": "2.0.4"
   },
   "devDependencies": {
+    "@react-native/jest-preset": "^0.86.0",
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^14.0.1",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.2.2",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.11",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -45,7 +51,10 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "private": true
 }
