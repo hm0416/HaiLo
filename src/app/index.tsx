@@ -1,108 +1,239 @@
-import { useEffect, useState } from 'react';
-import { Linking, Platform, Pressable, StyleSheet } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { Linking, Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { loadVideosController } from '@/api/controllers/recoveryController';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { VideoRecord } from '@/api/types';
-import { loadVideoSummaries, type SummaryBlock } from './home-summary';
+import { Spacing } from '@/constants/theme';
+import { QuestionKey } from '@/api/types';
+import { loadVideoSummaries, type SummaryBlock } from '../api/utils/home-summary';
+import { getLastCheckInController, saveCheckInController, getRiskAssessmentController } from '@/api/controllers/recoveryController';
+
+// if had more time would split into more files for better organization 
+
+// map questions to ids
+const questions: Array<{ key: QuestionKey; label: string; videoId: string }> = [
+  { key: 'anxiety', label: 'How has your anxiety been?', videoId: 'v1' },
+  { key: 'stress', label: 'How is your stress?', videoId: 'v2' },
+  { key: 'depression', label: 'How has your depression been?', videoId: 'v3' },
+];
+
+// Map video IDs to URLs and titles
+const videoData: Record<string, { url: string; title: string }> = {
+  v1: { url: 'https://www.youtube.com/watch?v=FpiWSFcL3-c', title: 'Managing Anxiety' },
+  v2: { url: 'https://www.youtube.com/watch?v=RcGyVTAoXEU&t=459s', title: 'Understanding Stress' },
+  v3: { url: 'https://www.youtube.com/watch?v=HWcphoKlbxY', title: 'Coping with Depression' },
+};
 
 export default function HomeScreen() {
-  const [videos, setVideos] = useState<VideoRecord[]>([]);
-  const [summaries, setSummaries] = useState<Record<string, SummaryBlock>>({});
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    let active = true;
+  // Local UI state - user's current selections (not persisted until saved)
+  const [responses, setResponses] = useState<Record<QuestionKey, number | null>>({
+    stress: null,
+    anxiety: null,
+    depression: null,
+  });
 
-    async function loadVideos() {
-      try {
-        const [data, cachedSummaries] = await Promise.all([
-          loadVideosController(),
-          loadVideoSummaries(),
-        ]);
+  // Server state data - Video summaries from cached JSON - persisted - dont need tanQuery here but it helps with caching and loading states (only loads when the component is mounted)
+  // handles fetching, caching, loading states, error handling 
+  const { data: summaries = {}, isLoading: summariesLoading } = useQuery<Record<string, SummaryBlock>>({
+    queryKey: ['videoSummaries'], // unique key for caching video summaries
+    queryFn: loadVideoSummaries, // fetches the data 
+  });
 
-        if (active) {
-          setVideos(data);
-          setSummaries(cachedSummaries);
-        }
-      } catch (error) {
-        console.warn('Failed to load videos', error);
-      } finally {
-        if (active) setLoading(false);
-      }
+  // Server state (lives in DB and fetched -  good for error handling, lazy loading) - Last check-in from database - persisted
+  const { data: lastCheckIn, isLoading: checkInLoading } = useQuery({
+    queryKey: ['lastCheckIn'],
+    queryFn: getLastCheckInController,
+  });
+
+  // Server state (lives in DB and fetched) - Risk assessment - persisted 
+  const { data: riskAssessment } = useQuery({
+    queryKey: ['riskAssessment'],
+    queryFn: getRiskAssessmentController,
+  });
+
+  // Track if we've initialized from server data (only initialize once on first load)
+  // useRef good for tracking flags or storing prev values
+  // useRef value destroyed when user closes app so new ref created then 
+  const hasInitialized = useRef(false);
+
+  // Initialize responses when lastCheckIn data loads (only once, not on subsequent updates)
+  // This prevents overwriting user's current selections after save/refetch
+  // need this for lastCheckIn and not for risk bc user edits the selections. risk is just a calculation & only reading from it
+  // copied to local state from server state bc we want to allow user edits before saving again
+  useEffect(() => { // without useRef, we are syncing local state with server data on every update, which can overwrite user selections. so fix by syncing on first load only
+    if (lastCheckIn && !hasInitialized.current) {
+      console.log('Loaded last check-in:', lastCheckIn);
+      setResponses({
+        anxiety: lastCheckIn.anxiety,
+        stress: lastCheckIn.stress,
+        depression: lastCheckIn.depression,
+      });
+      hasInitialized.current = true; // no re-render when changing useRef value
     }
+  }, [lastCheckIn]);
 
-    loadVideos();
+  // Mutation - Save check-in to database - called below when selectOption is triggered 
+  // saving new scores will change lastCheckIn which will impact riskAssessment so need to refetch 
+  const saveCheckInMutation = useMutation({
+    mutationFn: ({ anxiety, stress, depression }: { anxiety: number; stress: number; depression: number }) =>
+      saveCheckInController(anxiety, stress, depression),
+    onSuccess: (data) => {
+      console.log('Check-in saved successfully:', data);
+      // Invalidate and refetch queries because the cached data is now outdated 
+      queryClient.invalidateQueries({ queryKey: ['lastCheckIn'] });
+      queryClient.invalidateQueries({ queryKey: ['riskAssessment'] });
+    },
+    onError: (error) => {
+      console.warn('Failed to save check-in', error);
+    },
+  });
 
-    return () => {
-      active = false;
-    };
-  }, []);
+  const selectOption = async (key: QuestionKey, value: number) => {
+    const newResponses = { ...responses, [key]: value };
+    setResponses(newResponses);
+
+    // Save to database when all three values are set
+    if (newResponses.anxiety !== null && newResponses.stress !== null && newResponses.depression !== null) {
+      saveCheckInMutation.mutate({ // calls the mutationFn which calls controller -> service -> SQLite to save the data
+        anxiety: newResponses.anxiety,
+        stress: newResponses.stress,
+        depression: newResponses.depression,
+      });
+    }
+  };
+
+  const loading = summariesLoading || checkInLoading;
+  const lastCheckInDate = lastCheckIn ? new Date(lastCheckIn.timestamp).toLocaleDateString() : null;
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="title" style={styles.title}>
-          Selected For You
-        </ThemedText>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <ThemedView style={styles.introSection}>
+            <ThemedText type="subtitle" style={styles.welcomeTitle}>
+              Welcome to HaiLo
+            </ThemedText>
+            <ThemedText type="small" style={styles.introText}>
+              Your personal mental health companion. Track how you're feeling and get personalized resources to support your well-being.
+            </ThemedText>
+          </ThemedView>
 
-        <ThemedView style={styles.videoList}>
-          {loading ? (
-            <ThemedText type="small">Loading videos...</ThemedText>
-          ) : videos.length === 0 ? (
-            <ThemedText type="small">No videos available yet.</ThemedText>
-          ) : (
-            videos.map((video) => {
-              const summary = summaries[video.id];
+          <ThemedText type="subtitle" style={styles.title}>
+            How are you feeling today?
+          </ThemedText>
 
-              return (
-                <Pressable
-                  key={video.id}
-                  onPress={() => Linking.openURL(video.source)}
-                  style={styles.videoCard}
-                >
-                  <ThemedText type="default" style={styles.videoTitle}>
-                    {video.title}
-                  </ThemedText>
-                  <ThemedText type="small" style={styles.videoMeta}>
-                    {`topic: ${video.topic}`}
-                  </ThemedText>
-                  {summary ? (
-                    <ThemedView style={styles.summaryBlock}>
-                      {/* <ThemedText type="small" style={styles.summaryLabel}>
-                        Summary
-                      </ThemedText>
-                      <ThemedText type="small">{summary.summary}</ThemedText> */}
-
-                      <ThemedText type="small" style={styles.summaryLabel}>
-                        Tips / Tricks
-                      </ThemedText>
-                      {summary.tipsAndTricks?.map((tip) => (
-                        <ThemedText key={tip} type="small">
-                          • {tip}
-                        </ThemedText>
-                      ))}
-
-                      <ThemedText type="small" style={styles.summaryLabel}>
-                        Action Plan
-                      </ThemedText>
-                      {summary.actionPlan?.map((step) => (
-                        <ThemedText key={step} type="small">
-                          • {step}
-                        </ThemedText>
-                      ))}
-                    </ThemedView>
-                  ) : null}
-                </Pressable>
-              );
-            })
+          {lastCheckInDate && (
+            <ThemedText type="small" style={styles.lastCheckInText}>
+              Last check-in: {lastCheckInDate}
+            </ThemedText>
           )}
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
+
+          {/* Risk Assessment Display */}
+          {riskAssessment && responses.anxiety !== null && responses.stress !== null && responses.depression !== null && (
+            <ThemedView style={styles.riskAssessmentCard}>
+              <ThemedView style={[
+                styles.riskBadge,
+                riskAssessment.level === 'high' && styles.riskBadgeHigh,
+                riskAssessment.level === 'moderate' && styles.riskBadgeModerate,
+                riskAssessment.level === 'low' && styles.riskBadgeLow,
+              ]}>
+                <ThemedText type="default" style={styles.riskLevel}>
+                  {riskAssessment.level === 'high' ? '⚠️ High Priority' :
+                    riskAssessment.level === 'moderate' ? '⚡ Moderate' :
+                      '✅ Looking Good'}
+                </ThemedText>
+              </ThemedView>
+              <ThemedText type="default" style={styles.riskMessage}>
+                {riskAssessment.message}
+              </ThemedText>
+              <ThemedText type="small" style={styles.riskRecommendation}>
+                {riskAssessment.recommendation}
+              </ThemedText>
+            </ThemedView>
+          )}
+
+          {questions.map((question) => {
+            const selectedValue = responses[question.key]; // value selected from 1-5
+            const showVideo = selectedValue !== null && selectedValue >= 3;
+            const summary = summaries[question.videoId]; // video tips and action plan 
+            const video = videoData[question.videoId];
+
+            return (
+              <ThemedView key={question.key} style={styles.questionSection}>
+                {/* Question Bubble */}
+                <ThemedView style={styles.bubble}>
+                  <ThemedText type="default" style={styles.question}>
+                    {question.label}
+                  </ThemedText>
+                  <ThemedView style={styles.optionsRow}>
+                    {[1, 2, 3, 4, 5].map((value) => {
+                      const isSelected = selectedValue === value;
+
+                      return (
+                        <Pressable
+                          key={value}
+                          onPress={() => selectOption(question.key, value)}
+                          style={[styles.optionButton, isSelected && styles.optionButtonSelected]}
+                        >
+                          <ThemedText
+                            type="smallBold"
+                            style={[styles.optionText, isSelected && styles.optionTextSelected]}
+                          >
+                            {value}
+                          </ThemedText>
+                        </Pressable>
+                      );
+                    })}
+                  </ThemedView>
+                </ThemedView>
+
+                {/* Video Tile - Only shown if score >= 3 */}
+                {showVideo && video && (
+                  <Pressable onPress={() => Linking.openURL(video.url)} style={styles.videoCard}>
+                    <ThemedText type="default" style={styles.videoTitle}>
+                      {video.title}
+                    </ThemedText>
+                    <ThemedText type="small" style={styles.videoMeta}>
+                      Tap to watch
+                    </ThemedText>
+
+                    {summary && !loading ? (
+                      <ThemedView style={styles.summaryBlock}>
+                        <ThemedText type="small" style={styles.summaryLabel}>
+                          Tips & Tricks
+                        </ThemedText>
+                        {summary.tipsAndTricks?.map((tip, idx) => (
+                          <ThemedText key={idx} type="small" style={styles.bulletText}>
+                            • {tip}
+                          </ThemedText>
+                        ))}
+
+                        <ThemedText type="small" style={styles.summaryLabel}>
+                          Action Plan
+                        </ThemedText>
+                        {summary.actionPlan?.map((step, idx) => (
+                          <ThemedText key={idx} type="small" style={styles.bulletText}>
+                            • {step}
+                          </ThemedText>
+                        ))}
+                      </ThemedView>
+                    ) : null}
+                  </Pressable>
+                )}
+              </ThemedView>
+            );
+          })}
+
+          {Platform.OS === 'web' && <WebBadge />}
+        </ScrollView>
       </SafeAreaView>
     </ThemedView>
   );
@@ -111,26 +242,91 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
   },
   safeArea: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    padding: Spacing.four,
+  },
+  scrollContent: {
+    gap: Spacing.two,
+  },
+  introSection: {
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
+    marginBottom: Spacing.two,
+  },
+  welcomeTitle: {
+    textAlign: 'center',
+    fontSize: 28,
+    marginBottom: Spacing.one,
+    fontWeight: '700',
+  },
+  introText: {
+    textAlign: 'center',
+    opacity: 0.8,
+    lineHeight: 20,
   },
   title: {
     textAlign: 'center',
-    fontSize: 24,
+    marginBottom: Spacing.one,
+    fontSize: 25,
   },
-  videoList: {
+  lastCheckInText: {
+    textAlign: 'center',
+    opacity: 0.6,
+    marginBottom: Spacing.two,
+    fontSize: 12,
+  },
+  questionSection: {
     width: '100%',
     gap: Spacing.two,
   },
+  bubble: {
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
+    borderRadius: 20,
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  question: {
+    marginBottom: Spacing.two,
+  },
+  optionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Spacing.one,
+  },
+  optionButton: {
+    flex: 1,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#C7C9D1',
+    borderRadius: 999,
+    paddingHorizontal: Spacing.one,
+  },
+  optionButtonSelected: {
+    backgroundColor: '#3c87f7',
+    borderColor: '#3c87f7',
+  },
+  optionText: {
+    color: '#3c87f7',
+  },
+  optionTextSelected: {
+    color: '#ffffff',
+  },
   videoCard: {
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
     padding: Spacing.two,
     borderRadius: Spacing.two,
     backgroundColor: 'rgba(60, 135, 247, 0.12)',
@@ -148,6 +344,57 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontWeight: '700',
-    marginTop: Spacing.one / 2,
+    marginTop: Spacing.one,
+    marginBottom: Spacing.one / 4,
+    marginLeft: Spacing.one,
+  },
+  bulletText: {
+    lineHeight: 20,
+    paddingLeft: Spacing.one,
+    marginBottom: Spacing.one / 4,
+  },
+  riskAssessmentCard: {
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
+    padding: Spacing.three,
+    borderRadius: Spacing.two,
+    marginTop: Spacing.two,
+    gap: Spacing.two,
+    shadowColor: '#000000',
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  riskBadge: {
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+    borderRadius: 20,
+    marginBottom: Spacing.one,
+  },
+  riskBadgeHigh: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+  },
+  riskBadgeModerate: {
+    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+  },
+  riskBadgeLow: {
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+  },
+  riskLevel: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  riskMessage: {
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  riskRecommendation: {
+    textAlign: 'center',
+    opacity: 0.8,
+    lineHeight: 20,
+    fontStyle: 'italic',
   },
 });

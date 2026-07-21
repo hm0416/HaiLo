@@ -1,89 +1,130 @@
 import * as SQLite from 'expo-sqlite';
-import { GET_VIDEOS, recoveryClient } from '../client/recoveryClient';
-import type { VideoRecord } from '@/api/types';
+import { GET_LAST_CHECK_IN, SAVE_CHECK_IN, recoveryClient } from '../client/recoveryClient';
+import type { CheckInRecord } from '@/api/types';
 
-// export class RecoveryService {
+const db = SQLite.openDatabaseSync('hailo.db'); // creates DB
 
-// }
-
-const db = SQLite.openDatabaseSync('releaseu.db'); // creates DB
+let isInitialized = false;
 
 export async function initDatabase() {
-  // execute these queeries upon initalization
+  // Only initialize once to prevent dropping tables on every call
+  if (isInitialized) {
+    return db;
+  }
 
-  // drop table removes the old table definitions - was having trouble when updating the links below
-  // create table builds the new schema 
+  // execute these queries upon initialization
+  // Use CREATE TABLE IF NOT EXISTS to preserve data
   db.execSync(`
-    DROP TABLE IF EXISTS videos;
-    CREATE TABLE videos(
-      id TEXT PRIMARY KEY NOT NULL,
-      title TEXT NOT NULL,
-      source TEXT NOT NULL,
-      topic TEXT NOT NULL,
-      minScore INTEGER NOT NULL
+    CREATE TABLE IF NOT EXISTS check_ins(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      anxiety INTEGER NOT NULL,
+      stress INTEGER NOT NULL,
+      depression INTEGER NOT NULL,
+      timestamp TEXT NOT NULL
     );
   `);
 
-  await seedVideos(db); // reinstered with latest video values
+  isInitialized = true;
   return db;
 }
 
-async function seedVideos(db: SQLite.SQLiteDatabase) {
-  const anxietyVideo = 'https://www.youtube.com/watch?v=FpiWSFcL3-c';
-  const stressVideo = 'https://www.youtube.com/watch?v=RcGyVTAoXEU&t=459s';
-  const depressionVideo = 'https://www.youtube.com/watch?v=HWcphoKlbxY';
+// ===== BUSINESS LOGIC ===== 
 
-  const seedRows: Array<[string, string, string, string, number]> = [
-    ['v1', 'How to Calm Your Anxiety, From a Neuroscientist | The Way We Work, a TED series', anxietyVideo, 'anxiety', 3],
-    ['v2', 'How to Make Stress Your Friend | Kelly McGonigal | TED', stressVideo, 'stress', 3],
-    ['v3', 'Understanding & Conquering Depression | Huberman Lab Essentials', depressionVideo, 'depression', 3],
-  ]; // TODO: figure out which to suggest if all meet min score
+// Save a mood check-in to the database
+export async function saveCheckIn(anxiety: number, stress: number, depression: number) {
+  const timestamp = new Date().toISOString();
 
-  for (const [id, title, source, topic, minScore] of seedRows) {
-    await db.runAsync(
-      'INSERT OR REPLACE INTO videos (id, title, source, topic, minScore) VALUES (?, ?, ?, ?, ?)',
-      [id, title, source, topic, minScore]
-    );
-  }
-}
-
-
-// business logic 
-
-export async function getVideos() {
-  const videos = await db.getAllAsync<VideoRecord>(
-    'SELECT * FROM videos ORDER BY topic, title'
+  await db.runAsync(
+    'INSERT INTO check_ins (anxiety, stress, depression, timestamp) VALUES (?, ?, ?, ?)',
+    [anxiety, stress, depression, timestamp]
   );
-  return videos;
+
+  // Return the newly created check-in
+  return db.getFirstAsync<CheckInRecord>(
+    'SELECT * FROM check_ins ORDER BY id DESC LIMIT 1'
+  );
 }
 
-// fetch videos from GraphQL API, fallback to local database if it fails
-export async function getVideosFromGraphQL() {
+// Save check-in through GraphQL, fallback to local database if it fails
+export async function saveCheckInWithGraphQL(anxiety: number, stress: number, depression: number) {
   try {
-    const { data } = await recoveryClient.query<{ videos: VideoRecord[] }>({
-      query: GET_VIDEOS,
+    const { data } = await recoveryClient.mutate<{ saveCheckIn: CheckInRecord }>({
+      mutation: SAVE_CHECK_IN,
+      variables: { anxiety, stress, depression },
     });
 
-    return data?.videos ?? [];
+    return data?.saveCheckIn ?? null;
   } catch (error) {
-    console.warn('GraphQL videos failed, using local data', error);
-    return getVideos();
+    console.warn('GraphQL save check-in failed, using local database', error);
+    return saveCheckIn(anxiety, stress, depression); // need this because the graohQL call will fail since no server running
   }
 }
 
-// for exercise, only one video per topic 
-export async function getVideoByTopic(topic: string) {
-  return db.getFirstAsync<VideoRecord>(
-    'SELECT * FROM videos WHERE topic = ? LIMIT 1',
-    [topic]
+// Get the last saved check-in from the database
+export async function getLastCheckIn() {
+  return db.getFirstAsync<CheckInRecord>(
+    'SELECT * FROM check_ins ORDER BY id DESC LIMIT 1'
   );
 }
 
-// for real use, there will be more than one video per topic so will fetch videos by topic and potentially select one based on additional criteria such as user preferences or minScore
+// Get last check-in through GraphQL, fallback to local database if it fails
+export async function getLastCheckInWithGraphQL() {
+  try {
+    const { data } = await recoveryClient.query<{ lastCheckIn: CheckInRecord | null }>({
+      query: GET_LAST_CHECK_IN,
+    });
 
-// export async function getVideosByTopic(topic: string) {
-//   return db.getAllAsync<VideoRecord>(
-//     'SELECT * FROM videos WHERE topic = ? ORDER BY minScore DESC, id DESC',
-//     [topic]
-//   );
-// }
+    return data?.lastCheckIn ?? null;
+  } catch (error) {
+    console.warn('GraphQL get last check-in failed, using local database', error);
+    return getLastCheckIn();
+  }
+}
+
+// Assess risk level based on check-in scores
+// Scores: 1-2 = low/good, 3-5 = high/concerning
+// Enforces rules to flag when intervention might be needed
+export function assessRiskLevel(anxiety: number, stress: number, depression: number) {
+  const totalScore = anxiety + stress + depression;
+  const highScores = [anxiety, stress, depression].filter(s => s >= 4).length;
+  const averageScore = totalScore / 3;
+
+  // High risk: total >= 12 OR 2+ scores at 4-5 OR average >= 4
+  if (totalScore >= 12 || highScores >= 2 || averageScore >= 4) {
+    return {
+      level: 'high' as const,
+      message: 'Consider reaching out to a counselor or mental health professional',
+      urgency: 'immediate' as const,
+      recommendation: 'Please prioritize your mental health and seek support',
+    };
+  }
+
+  // Moderate risk: total >= 9 OR any single score at 4-5
+  if (totalScore >= 9 || highScores >= 1) {
+    return {
+      level: 'moderate' as const,
+      message: 'Your stress levels are elevated. Try some coping strategies',
+      urgency: 'soon' as const,
+      recommendation: 'Watch the recommended videos and practice self-care',
+    };
+  }
+
+  // Low risk: everything else
+  return {
+    level: 'low' as const,
+    message: 'You\'re doing well! Keep monitoring your well-being',
+    urgency: 'routine' as const,
+    recommendation: 'Continue your current wellness practices',
+  };
+}
+
+// Get risk assessment for the most recent check-in
+export async function getCurrentRiskAssessment() {
+  const lastCheckIn = await getLastCheckIn();
+
+  if (!lastCheckIn) {
+    return null;
+  }
+
+  return assessRiskLevel(lastCheckIn.anxiety, lastCheckIn.stress, lastCheckIn.depression);
+}
