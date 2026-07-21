@@ -7,10 +7,7 @@ A comprehensive wellness companion app for students focused on mental health sup
 HaiLo is a mental health support application designed to help students manage stress, anxiety, and depression through:
 
 - **Mood Check-ins**: Interactive chatbot that asks targeted questions about your mental state
-- **Intelligent Recommendations**: AI-powered mood scoring system that suggests relevant wellness videos
-- **Video Library**: Curated mental health content with AI-generated summaries, tips, and action plans
-- **Progress Dashboard**: Track your mental health journey over time
-- **Sobriety Tracker**: Monitor recovery progress with streak-based incentives (future feature)
+- **Intelligent Recommendations**: Curated mental health content with AI-generated summaries, tips, and action plans
 
 ### Architecture Highlights
 
@@ -76,14 +73,14 @@ LM Studio provides local AI capabilities for generating video summaries and well
 2. **Download a Model**
    - Open LM Studio and go to the "Search" tab
    - Download a recommended model like:
-     - `TheBloke/Mistral-7B-Instruct-v0.2-GGUF`
-     - `TheBloke/Llama-2-7B-Chat-GGUF`
+     - `gemma-4-e2b`
+     - `Qwen3.5 4B 4bit 4BIT`
      - Any other instruct/chat model (7B-13B recommended for performance)
 
 3. **Start the Local Server**
    - In LM Studio, go to the "Local Server" tab
    - Click "Start Server"
-   - Ensure it's running on `http://localhost:1234` (default port)
+   - Ensure it's running on `http://localhost:1234/v1` (default port)
    - The status should show "Server Running"
 
 4. **Generate Video Summaries**
@@ -109,7 +106,7 @@ LM Studio provides local AI capabilities for generating video summaries and well
 
 ## 🧪 Running Tests
 
-This project includes comprehensive unit tests with excellent coverage.
+This project includes comprehensive unit tests.
 
 ### Test Commands
 
@@ -176,9 +173,7 @@ src/
 │   ├── services/            # Core business logic
 │   └── utils/               # Helper functions
 ├── app/
-│   ├── index.tsx            # Home/Dashboard screen
-│   ├── chatbot.tsx          # Mood check-in flow
-│   └── explore.tsx          # Resources & community
+│   ├── index.tsx            # Homescreen with mood check-in flow
 ├── components/              # Reusable UI components
 ├── constants/               # Theme and configuration
 └── hooks/                   # Custom React hooks
@@ -193,7 +188,7 @@ src/
    - User interaction and input handling
 
 2. **Business Logic Layer** (`src/api/services/`)
-   - `recoveryService.ts`: Mood scoring, recommendations, streak calculations
+   - `recoveryService.ts`: Mood scoring & recommendations
    - Pure business logic, framework-agnostic
    - Highly testable with comprehensive unit tests
 
@@ -208,13 +203,6 @@ src/
 - **Recommendation Engine**: Matches mood scores to relevant wellness content
 - **Data Persistence**: SQLite ensures data survives app restarts
 - **Type Safety**: Full TypeScript coverage for reliability
-
-## 📚 Additional Resources
-
-- [Flow Documentation](flow_documentation.md) - Detailed user flows and backend architecture
-- [HaiLo Plan](releaseu_plan.md) - Product roadmap and feature planning
-- [Testing Guide](TESTING.md) - Comprehensive testing documentation
-- [Expo Documentation](https://docs.expo.dev/) - Official Expo framework docs
 
 ## 🛠️ Development
 
