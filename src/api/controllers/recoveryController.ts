@@ -1,7 +1,8 @@
 import {
     initDatabase,
     saveCheckInWithGraphQL,
-    getLastCheckInWithGraphQL
+    getLastCheckInWithGraphQL,
+    getCurrentRiskAssessment,
 } from '../services/recoveryService';
 
 // Controller to save a mood check-in
@@ -14,4 +15,10 @@ export async function saveCheckInController(anxiety: number, stress: number, dep
 export async function getLastCheckInController() {
     await initDatabase();
     return getLastCheckInWithGraphQL();
+}
+
+// Controller to get current risk assessment
+export async function getRiskAssessmentController() {
+    await initDatabase();
+    return getCurrentRiskAssessment();
 }

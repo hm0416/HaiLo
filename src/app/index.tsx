@@ -9,7 +9,7 @@ import { WebBadge } from '@/components/web-badge';
 import { Spacing } from '@/constants/theme';
 import { QuestionKey } from '@/api/types';
 import { loadVideoSummaries, type SummaryBlock } from '../api/utils/home-summary';
-import { getLastCheckInController, saveCheckInController } from '@/api/controllers/recoveryController';
+import { getLastCheckInController, saveCheckInController, getRiskAssessmentController } from '@/api/controllers/recoveryController';
 
 const questions: Array<{ key: QuestionKey; label: string; videoId: string }> = [
   { key: 'anxiety', label: 'How has your anxiety been?', videoId: 'v1' },
@@ -46,6 +46,12 @@ export default function HomeScreen() {
     queryFn: getLastCheckInController,
   });
 
+  // Server state - Risk assessment
+  const { data: riskAssessment } = useQuery({
+    queryKey: ['riskAssessment'],
+    queryFn: getRiskAssessmentController,
+  });
+
   // Initialize responses when lastCheckIn data loads
   useEffect(() => {
     if (lastCheckIn) {
@@ -64,8 +70,9 @@ export default function HomeScreen() {
       saveCheckInController(anxiety, stress, depression),
     onSuccess: (data) => {
       console.log('Check-in saved successfully:', data);
-      // Invalidate and refetch last check-in query
+      // Invalidate and refetch queries
       queryClient.invalidateQueries({ queryKey: ['lastCheckIn'] });
+      queryClient.invalidateQueries({ queryKey: ['riskAssessment'] });
     },
     onError: (error) => {
       console.warn('Failed to save check-in', error);
@@ -113,6 +120,30 @@ export default function HomeScreen() {
             <ThemedText type="small" style={styles.lastCheckInText}>
               Last check-in: {lastCheckInDate}
             </ThemedText>
+          )}
+
+          {/* Risk Assessment Display */}
+          {riskAssessment && responses.anxiety !== null && responses.stress !== null && responses.depression !== null && (
+            <ThemedView style={styles.riskAssessmentCard}>
+              <ThemedView style={[
+                styles.riskBadge,
+                riskAssessment.level === 'high' && styles.riskBadgeHigh,
+                riskAssessment.level === 'moderate' && styles.riskBadgeModerate,
+                riskAssessment.level === 'low' && styles.riskBadgeLow,
+              ]}>
+                <ThemedText type="default" style={styles.riskLevel}>
+                  {riskAssessment.level === 'high' ? '⚠️ High Priority' :
+                    riskAssessment.level === 'moderate' ? '⚡ Moderate' :
+                      '✅ Looking Good'}
+                </ThemedText>
+              </ThemedView>
+              <ThemedText type="default" style={styles.riskMessage}>
+                {riskAssessment.message}
+              </ThemedText>
+              <ThemedText type="small" style={styles.riskRecommendation}>
+                {riskAssessment.recommendation}
+              </ThemedText>
+            </ThemedView>
           )}
 
           {questions.map((question) => {
@@ -307,5 +338,49 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     paddingLeft: Spacing.one,
     marginBottom: Spacing.one / 4,
+  },
+  riskAssessmentCard: {
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
+    padding: Spacing.three,
+    borderRadius: Spacing.two,
+    marginTop: Spacing.two,
+    gap: Spacing.two,
+    shadowColor: '#000000',
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  riskBadge: {
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+    borderRadius: 20,
+    marginBottom: Spacing.one,
+  },
+  riskBadgeHigh: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+  },
+  riskBadgeModerate: {
+    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+  },
+  riskBadgeLow: {
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+  },
+  riskLevel: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  riskMessage: {
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  riskRecommendation: {
+    textAlign: 'center',
+    opacity: 0.8,
+    lineHeight: 20,
+    fontStyle: 'italic',
   },
 });

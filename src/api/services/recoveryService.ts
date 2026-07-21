@@ -80,3 +80,51 @@ export async function getLastCheckInWithGraphQL() {
     return getLastCheckIn();
   }
 }
+
+// BUSINESS LOGIC: Assess risk level based on check-in scores
+// Scores: 1-2 = low/good, 3-5 = high/concerning
+// Enforces rules to flag when intervention might be needed
+export function assessRiskLevel(anxiety: number, stress: number, depression: number) {
+  const totalScore = anxiety + stress + depression;
+  const highScores = [anxiety, stress, depression].filter(s => s >= 4).length;
+  const averageScore = totalScore / 3;
+
+  // High risk: total >= 12 OR 2+ scores at 4-5 OR average >= 4
+  if (totalScore >= 12 || highScores >= 2 || averageScore >= 4) {
+    return {
+      level: 'high' as const,
+      message: 'Consider reaching out to a counselor or mental health professional',
+      urgency: 'immediate' as const,
+      recommendation: 'Please prioritize your mental health and seek support',
+    };
+  }
+
+  // Moderate risk: total >= 9 OR any single score at 4-5
+  if (totalScore >= 9 || highScores >= 1) {
+    return {
+      level: 'moderate' as const,
+      message: 'Your stress levels are elevated. Try some coping strategies',
+      urgency: 'soon' as const,
+      recommendation: 'Watch the recommended videos and practice self-care',
+    };
+  }
+
+  // Low risk: everything else
+  return {
+    level: 'low' as const,
+    message: 'You\'re doing well! Keep monitoring your well-being',
+    urgency: 'routine' as const,
+    recommendation: 'Continue your current wellness practices',
+  };
+}
+
+// Get risk assessment for the most recent check-in
+export async function getCurrentRiskAssessment() {
+  const lastCheckIn = await getLastCheckIn();
+
+  if (!lastCheckIn) {
+    return null;
+  }
+
+  return assessRiskLevel(lastCheckIn.anxiety, lastCheckIn.stress, lastCheckIn.depression);
+}
