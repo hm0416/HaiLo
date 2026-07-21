@@ -11,12 +11,13 @@ SplashScreen.preventAutoHideAsync();
 initDatabase(); // called at app startup
 
 // Create a client for TanStack Query
+// Used so dont have to use as many hooks, no duplicate fetches, gives error/loading states 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+      retry: 1, // retry queries once if they fail 
+      staleTime: 5 * 60 * 1000, // data fresh for 5 minutes
+      gcTime: 10 * 60 * 1000, // unused data in cache for 10 mins
     },
   },
 });

@@ -81,7 +81,7 @@ export async function getLastCheckInWithGraphQL() {
   }
 }
 
-// BUSINESS LOGIC: Assess risk level based on check-in scores
+// Assess risk level based on check-in scores
 // Scores: 1-2 = low/good, 3-5 = high/concerning
 // Enforces rules to flag when intervention might be needed
 export function assessRiskLevel(anxiety: number, stress: number, depression: number) {

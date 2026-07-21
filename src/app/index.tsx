@@ -11,6 +11,7 @@ import { QuestionKey } from '@/api/types';
 import { loadVideoSummaries, type SummaryBlock } from '../api/utils/home-summary';
 import { getLastCheckInController, saveCheckInController, getRiskAssessmentController } from '@/api/controllers/recoveryController';
 
+// map questions to ids
 const questions: Array<{ key: QuestionKey; label: string; videoId: string }> = [
   { key: 'anxiety', label: 'How has your anxiety been?', videoId: 'v1' },
   { key: 'stress', label: 'How is your stress?', videoId: 'v2' },
@@ -34,25 +35,28 @@ export default function HomeScreen() {
     depression: null,
   });
 
-  // Server state - Video summaries from cached JSON
+  // Server state - Video summaries from cached JSON - persisted 
+  // handles fetching, caching, loading states, error handling 
   const { data: summaries = {}, isLoading: summariesLoading } = useQuery<Record<string, SummaryBlock>>({
-    queryKey: ['videoSummaries'],
-    queryFn: loadVideoSummaries,
+    queryKey: ['videoSummaries'], // unique key for caching video summaries
+    queryFn: loadVideoSummaries, // fetches the data 
   });
 
-  // Server state - Last check-in from database
+  // Server state - Last check-in from database - persisted
   const { data: lastCheckIn, isLoading: checkInLoading } = useQuery({
     queryKey: ['lastCheckIn'],
     queryFn: getLastCheckInController,
   });
 
-  // Server state - Risk assessment
+  // Server state - Risk assessment - persisted 
   const { data: riskAssessment } = useQuery({
     queryKey: ['riskAssessment'],
     queryFn: getRiskAssessmentController,
   });
 
-  // Initialize responses when lastCheckIn data loads
+  // Initialize responses when lastCheckIn data loads -- check 
+  // useEffect -> when fetching lastCheckIn, update local responses state accordingly
+  // lastcheckIn is undefined at first so the effect will only run once it becomes available
   useEffect(() => {
     if (lastCheckIn) {
       console.log('Loaded last check-in:', lastCheckIn);
@@ -64,13 +68,14 @@ export default function HomeScreen() {
     }
   }, [lastCheckIn]);
 
-  // Mutation - Save check-in to database
+  // Mutation - Save check-in to database - called below when selectOption is triggered 
+  // saving new scores will change lastCheckIn which will impact riskAssessment so need to refetch 
   const saveCheckInMutation = useMutation({
     mutationFn: ({ anxiety, stress, depression }: { anxiety: number; stress: number; depression: number }) =>
       saveCheckInController(anxiety, stress, depression),
     onSuccess: (data) => {
       console.log('Check-in saved successfully:', data);
-      // Invalidate and refetch queries
+      // Invalidate and refetch queries because the cached data is now outdated 
       queryClient.invalidateQueries({ queryKey: ['lastCheckIn'] });
       queryClient.invalidateQueries({ queryKey: ['riskAssessment'] });
     },
@@ -85,7 +90,7 @@ export default function HomeScreen() {
 
     // Save to database when all three values are set
     if (newResponses.anxiety !== null && newResponses.stress !== null && newResponses.depression !== null) {
-      saveCheckInMutation.mutate({
+      saveCheckInMutation.mutate({ // calls the mutationFn which calls controller -> service -> SQLite to save the data
         anxiety: newResponses.anxiety,
         stress: newResponses.stress,
         depression: newResponses.depression,
@@ -147,9 +152,9 @@ export default function HomeScreen() {
           )}
 
           {questions.map((question) => {
-            const selectedValue = responses[question.key];
+            const selectedValue = responses[question.key]; // value selected from 1-5
             const showVideo = selectedValue !== null && selectedValue >= 3;
-            const summary = summaries[question.videoId];
+            const summary = summaries[question.videoId]; // video tips and action plan 
             const video = videoData[question.videoId];
 
             return (

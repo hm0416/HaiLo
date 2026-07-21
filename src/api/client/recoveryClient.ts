@@ -5,7 +5,7 @@ export class RecoveryClient {
 
   constructor() {
     const httpLink = new HttpLink({
-      uri: 'http://localhost:4000/graphql',
+      uri: 'http://localhost:4000/graphql', // mock endpoint, no actual server hosted 
     });
 
     this.client = new ApolloClient({
@@ -31,6 +31,7 @@ export const GET_LAST_CHECK_IN = gql`
 `;
 
 // Mutation to save a new mood check-in
+// mutation --> write operation 
 export const SAVE_CHECK_IN = gql`
   mutation SaveCheckIn($anxiety: Int!, $stress: Int!, $depression: Int!) {
     saveCheckIn(anxiety: $anxiety, stress: $stress, depression: $depression) {
