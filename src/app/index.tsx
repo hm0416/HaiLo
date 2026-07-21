@@ -7,7 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { Spacing } from '@/constants/theme';
 import { QuestionKey } from '@/api/types';
-import { loadVideoSummaries, type SummaryBlock } from './home-summary';
+import { loadVideoSummaries, type SummaryBlock } from '../api/utils/home-summary';
 import { getLastCheckInController, saveCheckInController } from '@/api/controllers/recoveryController';
 
 const questions: Array<{ key: QuestionKey; label: string; videoId: string }> = [

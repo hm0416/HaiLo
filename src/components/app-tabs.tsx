@@ -19,16 +19,6 @@ export default function AppTabs() {
           renderingMode="template"
         />
       </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="moodChecker">
-        <NativeTabs.Trigger.Label>Mood Checker</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="smiley.fill" md="sentiment_satisfied" />
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="progress">
-        <NativeTabs.Trigger.Label>Progress</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="hourglass.tophalf.filled" md="hourglass" />
-      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }

@@ -2,7 +2,7 @@ import { SummaryBlock } from '@/api/types';
 
 export async function loadVideoSummaries(): Promise<Record<string, SummaryBlock>> {
     try {
-        const module = await import('../../scripts/video-summaries.json');
+        const module = await import('../../../scripts/video-summaries.json');
         const data = module.default ?? module;
 
         // Transform to exclude summary field
