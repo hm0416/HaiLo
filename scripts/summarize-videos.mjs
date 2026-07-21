@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { YoutubeTranscript } from 'youtube-transcript';
 
 // overall flow - loops through the 3 videos, fetches their transcripts, sends the transcript to the AI, AI summarizes, results cached and shown on the UI 
+// in a script for the sole purpose of this exercise. dont have to wait for AI response during demo, can show cached results instead. for real development, would use AWS
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -71,7 +72,31 @@ Transcript: ${truncatedText}`,
 
     // 
     const payload = await response.json();
-    const raw = payload.choices?.[0]?.message?.content ?? '{}';
+    // AI payload example
+    /**
+     * {
+            "id": "chatcmpl-123",
+            "object": "chat.completion",
+            "created": 1677652288,
+            "model": "some-model",
+            "choices": [
+                {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "{\"tipsAndTricks\": [...], \"actionPlan\": [...]}"
+                },
+                "finish_reason": "stop"
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "total_tokens": 150
+            }
+            }
+     */
+    const raw = payload.choices?.[0]?.message?.content ?? '{}'; // AI payload 
 
     // Try to extract JSON if it's wrapped in markdown or has extra text. trim whitespaces
     let jsonString = raw.trim();
@@ -132,7 +157,7 @@ async function main() {
         }
     }
 
-    fs.writeFileSync(cachePath, JSON.stringify(summaries, null, 2)); // save all summaries to cache 
+    fs.writeFileSync(cachePath, JSON.stringify(summaries, null, 2)); // save all summaries to cache file
     console.log('Saved summaries to', cachePath);
 }
 

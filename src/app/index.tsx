@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Linking, Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -10,6 +10,8 @@ import { Spacing } from '@/constants/theme';
 import { QuestionKey } from '@/api/types';
 import { loadVideoSummaries, type SummaryBlock } from '../api/utils/home-summary';
 import { getLastCheckInController, saveCheckInController, getRiskAssessmentController } from '@/api/controllers/recoveryController';
+
+// if had more time would split into more files for better organization 
 
 // map questions to ids
 const questions: Array<{ key: QuestionKey; label: string; videoId: string }> = [
@@ -35,36 +37,43 @@ export default function HomeScreen() {
     depression: null,
   });
 
-  // Server state - Video summaries from cached JSON - persisted 
+  // Server state data - Video summaries from cached JSON - persisted - dont need tanQuery here but it helps with caching and loading states (only loads when the component is mounted)
   // handles fetching, caching, loading states, error handling 
   const { data: summaries = {}, isLoading: summariesLoading } = useQuery<Record<string, SummaryBlock>>({
     queryKey: ['videoSummaries'], // unique key for caching video summaries
     queryFn: loadVideoSummaries, // fetches the data 
   });
 
-  // Server state - Last check-in from database - persisted
+  // Server state (lives in DB and fetched -  good for error handling, lazy loading) - Last check-in from database - persisted
   const { data: lastCheckIn, isLoading: checkInLoading } = useQuery({
     queryKey: ['lastCheckIn'],
     queryFn: getLastCheckInController,
   });
 
-  // Server state - Risk assessment - persisted 
+  // Server state (lives in DB and fetched) - Risk assessment - persisted 
   const { data: riskAssessment } = useQuery({
     queryKey: ['riskAssessment'],
     queryFn: getRiskAssessmentController,
   });
 
-  // Initialize responses when lastCheckIn data loads -- check 
-  // useEffect -> when fetching lastCheckIn, update local responses state accordingly
-  // lastcheckIn is undefined at first so the effect will only run once it becomes available
-  useEffect(() => {
-    if (lastCheckIn) {
+  // Track if we've initialized from server data (only initialize once on first load)
+  // useRef good for tracking flags or storing prev values
+  // useRef value destroyed when user closes app so new ref created then 
+  const hasInitialized = useRef(false);
+
+  // Initialize responses when lastCheckIn data loads (only once, not on subsequent updates)
+  // This prevents overwriting user's current selections after save/refetch
+  // need this for lastCheckIn and not for risk bc user edits the selections. risk is just a calculation & only reading from it
+  // copied to local state from server state bc we want to allow user edits before saving again
+  useEffect(() => { // without useRef, we are syncing local state with server data on every update, which can overwrite user selections. so fix by syncing on first load only
+    if (lastCheckIn && !hasInitialized.current) {
       console.log('Loaded last check-in:', lastCheckIn);
       setResponses({
         anxiety: lastCheckIn.anxiety,
         stress: lastCheckIn.stress,
         depression: lastCheckIn.depression,
       });
+      hasInitialized.current = true; // no re-render when changing useRef value
     }
   }, [lastCheckIn]);
 
