@@ -278,16 +278,16 @@ Mental health support is often inaccessible to those who need it most. While the
 
 HaiLo addresses these challenges by making mental health resources accessible, immediate, and free. Users can check in on their emotional state and instantly receive personalized wellness resources, action plans, and support—all from their phone, whenever they need it.
 
-### AI in Healthcare: The Future is Now
+### AI in Healthcare:
 
-Artificial Intelligence has made remarkable advances in recent years, yet its potential in healthcare—particularly mental health—remains underutilized. This project represents a step toward that future, demonstrating how AI can:
+Artificial Intelligence has made many advances in recent years, yet its potential in healthcare—particularly mental health—remains underutilized. This project represents a step towards that, demonstrating how AI can:
 
 - **Democratize access** to mental health support
 - **Provide immediate, personalized guidance** based on individual needs
 - **Complement traditional therapy** with accessible daily check-ins and resources
 - **Scale support** to reach more people without the constraints of traditional healthcare systems
 
-Building HaiLo is my way of showcasing the transformative potential of AI in mental healthcare—proving that technology can make a real difference in people's lives.
+Building HaiLo is my way of showcasing the transformative potential of AI in mental healthcare.
 
 ### Integration with Release U
 
